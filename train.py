@@ -13,6 +13,9 @@ from models.cnn_reference import cnn_reference
 from models.Sparse_ResNet18 import sparse_resnet18
 from models.HitMapCNN import HitMapLightningModel
 
+from analysis.check_training import *
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="WIND Background Rejection Training Script")
 
@@ -153,6 +156,4 @@ if __name__ == "__main__":
         trainer.fit(model, datamodule=dm)
     else:
         print(" >>> Starting training from scratch")
-        trainer.fit(model, datamodule=dm)
-
-    # trainer.test(model, datamodule=dm)
+        trainer.fit(model, datamodule=dm)    

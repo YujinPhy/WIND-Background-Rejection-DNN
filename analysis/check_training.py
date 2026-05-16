@@ -2,58 +2,67 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def loss_analysis(csv_path, output_path, png_title):
-    # 1. 데이터 로드
-    df = pd.read_csv(csv_path)
+def loss_analysis(log_dir, output_path, png_title):
+    csv_path = os.path.join(log_dir, "metrics.csv")
+    bak_path = os.path.join(log_dir, "metrics.csv.bak")
     
-    # 2. 에포크별 데이터 처리
-    # Training Loss: 같은 에포크 내의 여러 step 값들을 평균 내어 대표값 생성
-    epoch_train = df.groupby('epoch')['train_loss'].mean().reset_index()
-    # Validation Loss: 에포크당 하나씩 있는 값을 추출
-    epoch_val = df.dropna(subset=['val_loss']).groupby('epoch')['val_loss'].first().reset_index()
+    # 1. Load and Merge files
+    dfs = []
+    
+    # Check for backup file
+    if os.path.exists(bak_path):
+        dfs.append(pd.read_csv(bak_path))
+        print(f" [INFO] Loaded backup log: {bak_path}")
+    
+    # Check for current metric file
+    if os.path.exists(csv_path):
+        dfs.append(pd.read_csv(csv_path))
+        print(f" [INFO] Loaded current log: {csv_path}")
+    
+    if not dfs:
+        print(" [ERROR] No log files found for analysis.")
+        return
 
-    # 3. 최적의 Epoch 찾기 (Validation Loss 기준)
+    # Integrate datasets
+    df_full = pd.concat(dfs, axis=0, ignore_index=True)
+
+    # 2. Data Cleaning (Handling Duplicate Epochs)
+    # Using last() ensures that the most recent training data (from resume) is preserved
+    epoch_train = df_full.dropna(subset=['train_loss']).groupby('epoch')['train_loss'].mean().reset_index()
+    epoch_val = df_full.dropna(subset=['val_loss']).groupby('epoch')['val_loss'].last().reset_index()
+
+    # 3. Identify Best Epoch (Based on Validation Loss)
     best_idx = epoch_val['val_loss'].idxmin()
     best_epoch = epoch_val.loc[best_idx, 'epoch']
     best_loss = epoch_val.loc[best_idx, 'val_loss']
 
-    # 4. 그래프 그리기
+    # 4. Plotting
     plt.figure(figsize=(12, 6))
 
-    # Training Loss Plot (평균값 사용)
     plt.plot(epoch_train['epoch'], epoch_train['train_loss'], 
-             label='Training Loss (Avg)', color='royalblue', lw=2, marker='o', markersize=4)
+             label='Training Loss (Total)', color='royalblue', lw=1.5, alpha=0.7)
     
-    # Validation Loss Plot
     plt.plot(epoch_val['epoch'], epoch_val['val_loss'], 
-             label='Validation Loss', color='darkorange', lw=2, linestyle='--', marker='s', markersize=6)
+             label='Validation Loss (Total)', color='darkorange', lw=2, marker='s', markersize=4)
 
-    # Best Epoch 가이드라인 및 점 표시
+    # Guide line for Best Epoch
     plt.axvline(x=best_epoch, color='red', linestyle='--', alpha=0.8,
-                label=f'Best Epoch: {int(best_epoch)} (Loss: {best_loss:.4f})')
-    plt.scatter(best_epoch, best_loss, color='red', s=80, zorder=5, edgecolors='black')
+                label=f'Best: Ep {int(best_epoch)} (Loss: {best_loss:.4f})')
+    plt.scatter(best_epoch, best_loss, color='red', s=60, zorder=5)
 
-    # 그래프 포맷팅
-    plt.title('Learning Curve', fontsize=14)
+    plt.title(f'Continuous Learning Curve: {png_title}', fontsize=14)
     plt.xlabel('Epoch', fontsize=12)
-    plt.ylabel('Log Loss', fontsize=12)
-    plt.legend(loc='upper right', fontsize=10)
+    plt.ylabel('Loss', fontsize=12)
+    plt.legend(loc='upper right')
     plt.grid(True, linestyle=':', alpha=0.6)
     
-    # X축을 에포크 번호로 명확히 표시
-    plt.xticks(epoch_val['epoch']) 
-    plt.tight_layout()
-
-    # 5. 저장 및 출력
+    # 5. Export results
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     
     save_path = os.path.join(output_path, f"{png_title}.png")
     plt.savefig(save_path, dpi=300)
-    print(f"✅ 그래프가 저장되었습니다: {save_path}")
-    
-    plt.show()
-
+    print(f" [SUCCESS] Analysis complete. Graph saved to: {save_path}")
 
 def save_batch_visualization(batch, channel_names,base_path, dir_name):
     inputs, targets = batch
