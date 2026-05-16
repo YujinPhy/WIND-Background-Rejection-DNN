@@ -6,9 +6,9 @@ import torchvision.models as models
 import pytorch_lightning as pl
 
 class resnet18(pl.LightningModule):
-    def __init__(self, lr=1e-3, is_gpu=True):
+    def __init__(self, args, lr=1e-3):
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(args)
         
         # 1. 사전학습된 ResNet18 로드
         # self.model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
@@ -24,29 +24,11 @@ class resnet18(pl.LightningModule):
         
         self.criterion = nn.CrossEntropyLoss()
 
-    def get_current_device(self):
-        """is_gpu 설정에 따라 적절한 장치 객체를 반환합니다."""
-        if self.hparams.is_gpu:
-            return torch_directml.device()
-        return torch.device("cpu")
-
     def forward(self, x):
-        # 현재 설정된 장치로 데이터 이동
-        device = self.get_current_device()
-        
-        # 장치 타입이 다를 때만 전송 (예: CPU -> PrivateUse1)
-        if x.device.type != device.type:
-            x = x.to(device)
-            
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
         inputs, targets = batch
-        device = self.get_current_device()
-        
-        # 데이터와 모델을 설정된 장치로 명시적 이동
-        inputs, targets = inputs.to(device), targets.to(device)
-        self.model.to(device) 
         
         logits = self(inputs)
         loss = self.criterion(logits, targets)
@@ -55,10 +37,6 @@ class resnet18(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         inputs, targets = batch
-        device = self.get_current_device()
-        
-        inputs, targets = inputs.to(device), targets.to(device)
-        self.model.to(device)
         
         logits = self(inputs)
         loss = self.criterion(logits, targets)
