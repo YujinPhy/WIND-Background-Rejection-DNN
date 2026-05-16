@@ -1,0 +1,8 @@
+# *.root
+*/__pycache__
+/arxiv
+/images
+/playground
+/log
+/raw_datas/scr/__pycache__
+/venv
