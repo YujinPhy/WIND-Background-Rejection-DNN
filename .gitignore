@@ -1,8 +1,15 @@
-# *.root
-*/__pycache__
+**/__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+.ipynb_checkpoints/
+
+
 /arxiv
 /images
 /playground
 /logs
-/raw_datas/scr/__pycache__
 /venv
+
+# *.root
