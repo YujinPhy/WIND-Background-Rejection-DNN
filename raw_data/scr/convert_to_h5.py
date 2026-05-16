@@ -2,7 +2,7 @@ import h5py
 import numpy as np
 from tqdm import tqdm
 import os
-from WIND_bkg_rejection.ROOT_FILEs.scr.utils import *
+from utils import *
 
 """
 h5 File Data Structure
@@ -28,10 +28,10 @@ h5 File Data Structure
 """
 
 # ==== Data Paths ====
-ES_FILE = "/home/yujin/projects/wind/WIND_bkg_rejection/ROOT_FILEs/WIND_66_4in_40p_ES_10k_internal_PMT.ntuple.root"
-N16_FILE = "/home/yujin/projects/wind/WIND_bkg_rejection/ROOT_FILEs/WIND_66_4in_40p_16N_10k_internal.ntuple.root"
+ES_FILE = "/home/yujin/projects/wind/WIND_bkg_rejection/raw_data/WIND_66_4in_40p_ES_10k_internal_PMT.ntuple.root"
+N16_FILE = "/home/yujin/projects/wind/WIND_bkg_rejection/raw_data/WIND_66_4in_40p_16N_10k_internal.ntuple.root"
 
-OUTPUT_PATH = "/home/yujin/projects/wind/WIND_bkg_rejection/ROOT_FILEs"
+OUTPUT_PATH = "/home/yujin/projects/wind/WIND_bkg_rejection/raw_data"
 # ==== Parameters ====
 ENERGY_CUT = 0 # MeV
 VERTEX_CUT = 0 # mm
@@ -75,6 +75,8 @@ def save_to_h5(data, label, energy_thr, vtx_cut_mm, min_unique_pmt, output_path,
     channel_functions = [
         ("charge", get_charge_map),   # (채널이름, 해당 처리 함수)
         ("first_hit_time", get_first_hit_time_map),
+        ("z_correction", get_z_correction),
+        ("r_correction", get_r_correction),
     ]
     
     num_channels = len(channel_functions)
@@ -135,7 +137,7 @@ def save_to_h5(data, label, energy_thr, vtx_cut_mm, min_unique_pmt, output_path,
 
 def render_summary(name, num_events, stats):
     print("\n" + "="*65)
-    print(f"📊 PREPROCESSING SUMMARY: {name}")
+    print(f" PREPROCESSING SUMMARY: {name}")
     print(f" - Total Selected Events: {num_events}")
     print("-" * 65)
     print(f"{'Channel Name':<20} | {'Total Hits':>12} | {'Missing':>10} | {'Loss %':>10}")
@@ -150,6 +152,9 @@ def render_summary(name, num_events, stats):
 
 if __name__ == "__main__":
 
+    es_h5_name = "WIND_ES_with_rz_corrections.h5"
+    n16_h5_name = "WIND_16N_with_rz_corrections.h5"
+
     # ES    
     es_data = event_selection(root_file=ES_FILE,
                               label=1,
@@ -163,9 +168,9 @@ if __name__ == "__main__":
                          vtx_cut_mm=VERTEX_CUT,
                          min_unique_pmt=MIN_UNIQUE_PMTS,
                          output_path=OUTPUT_PATH,
-                         h5_name="WIND_ES.h5")
+                         h5_name=es_h5_name)
     
-    render_summary("WIND_ES.h5", len(es_data), es_stat)
+    render_summary(es_h5_name, len(es_data), es_stat)
     
     # 16N
     n16_data = event_selection(root_file=N16_FILE, 
@@ -180,6 +185,6 @@ if __name__ == "__main__":
                           vtx_cut_mm=VERTEX_CUT,
                           min_unique_pmt=MIN_UNIQUE_PMTS,
                           output_path=OUTPUT_PATH,
-                          h5_name="WIND_16N.h5")
+                          h5_name=n16_h5_name)
     
-    render_summary("WIND_16N.h5", len(n16_data), n16_stat)
+    render_summary(n16_h5_name, len(n16_data), n16_stat)

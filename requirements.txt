@@ -1,3 +1,5 @@
 pytorch_lightning
 h5py
 scikit-learn
+pandas
+matplotlib

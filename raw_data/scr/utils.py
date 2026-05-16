@@ -325,3 +325,46 @@ def get_first_hit_time_map(event, width=142, side_height=45, cap_res=23):
     empty_hits = total_hits - recorded_hits
 
     return arr, ch_name, total_hits, empty_hits
+
+def get_z_correction(event, width=142, side_height=45, cap_res=23):
+    """검출기의 Z 위치 구조를 반영한 고정 NumPy 배열 생성"""
+    ch_name = "z_correction"
+    total_height = side_height + (2 * cap_res) 
+    z_map = np.zeros((1, total_height, width), dtype=np.float32)
+
+    # 1. 하단 캡 (Bottom Cap): Row 0 ~ 22
+    # 바닥면이므로 모두 0으로 채움 (이미 zeros로 생성했으므로 명시적 할당만 수행)
+    z_map[0, :cap_res, :] = 0.0
+    
+    # 2. 측면 (Side Barrel): Row 23 ~ 67
+    # 하단 끝(0)부터 상단 끝(1)까지 side_height만큼 배분
+    side_values = np.linspace(0.0, 1.0, side_height)
+    for i, val in enumerate(side_values):
+        z_map[0, cap_res + i, :] = val
+        
+    # 3. 상단 캡 (Top Cap): Row 68 ~ 90
+    # 천장면이므로 모두 1로 고정
+    z_map[0, cap_res + side_height:, :] = 1.0
+    return z_map, ch_name, 0, 0
+
+def get_r_correction(event, width=142, side_height=45, cap_res=23):
+    """검출기의 R 위치 구조를 반영한 고정 NumPy 배열 생성"""
+    ch_name = "r_correction"
+    
+    total_height = side_height + (2 * cap_res)
+    r_map = np.zeros((total_height, width), dtype=np.float32)
+
+    for zi in range(total_height):
+        if zi < cap_res:  
+            # Bottom Cap: 행 0(중심)에서 행 22(외곽)로 갈수록 0 -> 1
+            r_val = zi / (cap_res - 1)
+        elif zi >= cap_res + side_height:  
+            # Top Cap: 행 90(중심)에서 행 68(외곽)로 갈수록 0 -> 1
+            r_val = (total_height - 1 - zi) / (cap_res - 1)
+        else:  
+            # 측면: 모든 PMT가 벽면에 붙어있으므로 1.0 고정
+            r_val = 1.0
+            
+        r_map[zi, :] = r_val
+        
+    return r_map, ch_name, 0, 0
