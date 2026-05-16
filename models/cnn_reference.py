@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import pytorch_lightning as pl
-import torch_directml  # DirectML 사용
 
 class DoubleConvPackage(nn.Module):
     def __init__(self, in_channels, out_channels, use_aux=True):
@@ -49,21 +48,7 @@ class cnn_reference(pl.LightningModule):
         
         self.criterion = nn.CrossEntropyLoss()
 
-    def get_current_device(self):
-        """DirectML 장치를 명시적으로 반환"""
-        if self.hparams.is_gpu:
-            return torch_directml.device()
-        return torch.device("cpu")
-
     def forward(self, x):
-        device = self.get_current_device()
-        
-        # [중요] 모델 가중치와 입력 데이터가 DML 장치에 있는지 매번 확인 및 강제 이동
-        if next(self.parameters()).device.type != device.type:
-            self.to(device)
-        if x.device.type != device.type:
-            x = x.to(device)
-            
         x = self.package1(x)
         x = self.package2(x)
         x = self.package3(x)
@@ -80,12 +65,6 @@ class cnn_reference(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         inputs, targets = batch
-        device = self.get_current_device()
-        
-        # 데이터를 DirectML 장치로 명시적 이송
-        inputs, targets = inputs.to(device), targets.to(device)
-        
-        # forward 호출 시 내부에서 모델(self.to(device))도 함께 이동함
         logits = self(inputs)
         loss = self.criterion(logits, targets)
         
@@ -94,10 +73,6 @@ class cnn_reference(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         inputs, targets = batch
-        device = self.get_current_device()
-        
-        inputs, targets = inputs.to(device), targets.to(device)
-        
         logits = self(inputs)
         loss = self.criterion(logits, targets)
         preds = torch.argmax(logits, dim=1)
@@ -106,5 +81,4 @@ class cnn_reference(pl.LightningModule):
         self.log_dict({"val_loss": loss, "val_acc": acc}, prog_bar=True)
 
     def configure_optimizers(self):
-        # 최적화기에도 DML 장치에 있는 파라미터가 전달됨
         return optim.Adam(self.parameters(), lr=self.hparams.lr)

@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from torchvision.models import resnet18
 import pytorch_lightning as pl
-import torch_directml
 
 class sparse_resnet18(pl.LightningModule):
     def __init__(self, lr=1e-4, is_gpu=True):
@@ -29,26 +28,11 @@ class sparse_resnet18(pl.LightningModule):
         
         self.criterion = nn.CrossEntropyLoss()
 
-    def get_current_device(self):
-        if self.hparams.is_gpu:
-            return torch_directml.device()
-        return torch.device("cpu")
-
     def forward(self, x):
-        device = self.get_current_device()
-        # 하드웨어 설정 로직: 모델과 데이터를 강제로 DML로 이동
-        if next(self.parameters()).device.type != device.type:
-            self.to(device)
-        if x.device.type != device.type:
-            x = x.to(device)
-            
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
         inputs, targets = batch
-        device = self.get_current_device()
-        inputs, targets = inputs.to(device), targets.to(device)
-        
         logits = self(inputs)
         loss = self.criterion(logits, targets)
         self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True)
@@ -56,9 +40,6 @@ class sparse_resnet18(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         inputs, targets = batch
-        device = self.get_current_device()
-        inputs, targets = inputs.to(device), targets.to(device)
-        
         logits = self(inputs)
         loss = self.criterion(logits, targets)
         preds = torch.argmax(logits, dim=1)
