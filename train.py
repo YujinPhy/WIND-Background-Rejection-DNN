@@ -5,15 +5,15 @@ import os
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
+from sklearn.metrics import roc_curve, auc
 
 from datasets.DataModule import WIND_DataModule
-
 from models.ResNet18 import resnet18
 from models.cnn_reference import cnn_reference
 from models.Sparse_ResNet18 import sparse_resnet18
 from models.HitMapCNN import HitMapLightningModel
 
-
+from analysis.check_training import *
 
 def parse_args():
     parser = argparse.ArgumentParser(description="WIND Background Rejection Training Script")
@@ -31,10 +31,6 @@ def parse_args():
                         help="Path to the log files")
     parser.add_argument("--log-name", type=str, default=None, 
                         help="Name to the sub log files")
-    parser.add_argument("--ckpt-path", type=str, default=None, 
-                        help="Path to the checkpoint file (.ckpt)")
-    parser.add_argument("--resume", action="store_true", 
-                        help="If true, resume training including optimizer states from ckpt-path")
 
     # Training hyperparamters
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
@@ -88,7 +84,7 @@ if __name__ == "__main__":
         strategy = "auto"
         pin_memory = True
         if args.gpu:
-            print(" - GPU was requested (IS_GPU=True) but CUDA is not available. Falling back to CPU.")
+            print(" - GPU was requested, but CUDA is not available. Falling back to CPU.")
         else:
             print(" - Device: CPU")
 
@@ -112,30 +108,12 @@ if __name__ == "__main__":
     model.to(device) 
 
     # ==== Checkpoint ====
-    existing_version = None
-    if args.resume and args.ckpt_path:
-        match = re.search(r"version_(\d+)", args.ckpt_path)
-        if match:
-            existing_version = int(match.group(1))
-            print(f" >>> Resuming log in existing version: {existing_version}")
-            
-            log_file = os.path.join(args.log_path, args.log_name, f"version_{existing_version}", "metrics.csv")
-            
-            if os.path.exists(log_file):
-                print(f" >>> Found existing metrics.csv. Backup created at {log_file}.bak")
-                os.system(f"cp {log_file} {log_file}.bak")
-            else:
-                print(f" [!] Warning: {log_file} not found even though resume is active.")
-
     csv_logger = CSVLogger(save_dir=args.log_path,
-                           name=args.log_name,
-                           flush_logs_every_n_steps=10,
-                           version=existing_version)
-    checkpoint_callback = ModelCheckpoint(filename="best_model-{epoch:02d}-{val_loss:.3f}",
+                           name=args.log_name)
+    checkpoint_callback = ModelCheckpoint(filename="best_model",
                                           monitor="val_loss",
                                           mode="min",
-                                          save_top_k=1,       
-                                          save_last=True)
+                                          save_top_k=1)
     
     # ==== Start Training ====
     trainer = pl.Trainer(max_epochs=args.epochs,
@@ -147,13 +125,46 @@ if __name__ == "__main__":
                          log_every_n_steps=10,
                          enable_progress_bar=True)
     
-    if args.resume and args.ckpt_path:
-        print(f" >>> Resuming training from checkpoint: {args.ckpt_path}")
-        trainer.fit(model, datamodule=dm, ckpt_path=args.ckpt_path)
-    elif args.ckpt_path:
-        print(f" >>> Loading weights only from: {args.ckpt_path} and starting fresh")
-        model = HitMapLightningModel.load_from_checkpoint(args.ckpt_path)
-        trainer.fit(model, datamodule=dm)
+    trainer.fit(model, datamodule=dm)
+
+    # ==== Test ====
+    print("\n #### [ Evaluation ] #### ")
+    best_model_path = checkpoint_callback.best_model_path
+    if not best_model_path:
+        print(" [!] No best model found, using current weights for testing.")
+        best_model_path = None
     else:
-        print(" >>> Starting training from scratch")
-        trainer.fit(model, datamodule=dm)    
+        print(f" >>> Best model found at: {best_model_path}")
+
+    test_results = trainer.test(model, datamodule=dm, ckpt_path=best_model_path)
+
+    # ==== Analysis ====
+    # Learning Curve
+    # loss_acc_analysis(metrics_path=csv_logger.log_dir,
+    #                   output_path=csv_logger.log_dir,
+    #                   png_title=f"loss_acc_curve.png")
+
+
+    # ROC Curve
+    model.eval() # Set to evaluation mode
+    all_probs = []
+    all_targets = []
+
+    test_loader = dm.test_dataloader()
+    with torch.no_grad():
+        for batch in test_loader:
+            x, y = batch
+            logits = model(x.to(device))
+            # Get the probability for the 'Signal' class (index 1)
+            probs = torch.softmax(logits, dim=1)[:, 1]
+            
+            all_probs.extend(probs.cpu().numpy())
+            all_targets.extend(y.numpy())
+
+            plot_name, _ = os.path.splitext(args.log_name) if args.log_name else ("Result", "")
+    
+    save_dir = os.path.join(args.log_path, args.log_name, f"version_{csv_logger.version}")
+    os.makedirs(save_dir, exist_ok=True)
+    roc_save_path = os.path.join(save_dir, f"roc_curve_{plot_name}.png")
+
+    # plot_roc_curve(all_targets, all_probs, roc_save_path, plot_name)

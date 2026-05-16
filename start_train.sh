@@ -6,8 +6,6 @@ N16_H5="/home/yujin/projects/wind/WIND_bkg_rejection/raw_data/WIND_16N.h5"
 LOG_DIR="/home/yujin/projects/wind/WIND_bkg_rejection/logs"
 LOG_NAME="test"
 
-CHECKPOINT_DIR="$LOG_DIR/$LOG_NAME"
-
 python train.py \
     --es-path "$ES_H5" \
     --n16-path "$N16_H5" \
@@ -22,5 +20,3 @@ python train.py \
     --shuffle \
     --num-workers 16 \
     # --gpu \
-    # --ckpt-path "$CHECKPOINT_DIR/version_3/checkpoints/last.ckpt" \
-    # --resume

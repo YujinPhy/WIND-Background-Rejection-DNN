@@ -4,6 +4,10 @@ import torch.nn.functional as F
 import torch.optim as optim
 import pytorch_lightning as pl
 
+"""
+criteria에서 label smoothing 추가
+"""
+
 class DoubleConvBlock(nn.Module):
     def __init__(self, in_ch: int, out_ch: int, kernel_size: int, dropout: float = 0.20):
         super().__init__()
@@ -82,6 +86,23 @@ class HitMapLightningModel(pl.LightningModule):
         self.log_dict({"val_loss": loss, "val_acc": acc}, prog_bar=True, on_epoch=True)
         return loss
 
+    def test_step(self, batch, batch_idx):
+        # 1. Forward pass
+        inputs, targets = batch
+        logits = self(inputs)
+        
+        # 2. Compute Metrics
+        loss = self.criterion(logits, targets)
+        preds = torch.argmax(logits, dim=1)
+        acc = (preds == targets).float().mean()
+        
+        # 3. Log values
+        # This will be shown in the final test results summary
+        self.log_dict({"test_loss": loss, "test_acc": acc}, prog_bar=True, on_epoch=True)
+        
+        # 4. Return values for potential manual collection (optional)
+        return {"loss": loss, "acc": acc, "logits": logits, "targets": targets}
+    
     def configure_optimizers(self):
         # self.hparams.lr을 통해 __init__에서 입력받은 인자에 안전하게 접근합니다.
         return optim.Adam(self.parameters(), lr=self.hparams.lr)

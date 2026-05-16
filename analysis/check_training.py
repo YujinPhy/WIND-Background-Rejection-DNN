@@ -1,20 +1,20 @@
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc
 
-def loss_analysis(log_dir, output_path, png_title):
-    csv_path = os.path.join(log_dir, "metrics.csv")
-    bak_path = os.path.join(log_dir, "metrics.csv.bak")
+def loss_acc_analysis(metrics_path, output_path, png_title):
+    # 1. Filename Processing (Extract pure name without extension)
+    base_name, _ = os.path.splitext(png_title)
     
-    # 1. Load and Merge files
+    csv_path = os.path.join(metrics_path, "metrics.csv")
+    bak_path = os.path.join(metrics_path, "metrics.csv.bak")
+    
+    # Load data
     dfs = []
-    
-    # Check for backup file
     if os.path.exists(bak_path):
         dfs.append(pd.read_csv(bak_path))
         print(f" [INFO] Loaded backup log: {bak_path}")
-    
-    # Check for current metric file
     if os.path.exists(csv_path):
         dfs.append(pd.read_csv(csv_path))
         print(f" [INFO] Loaded current log: {csv_path}")
@@ -23,107 +23,99 @@ def loss_analysis(log_dir, output_path, png_title):
         print(" [ERROR] No log files found for analysis.")
         return
 
-    # Integrate datasets
+    # Merge and Clean Data
     df_full = pd.concat(dfs, axis=0, ignore_index=True)
+    train_df = df_full.dropna(subset=['train_loss']).groupby('epoch').mean().reset_index()
+    val_df = df_full.dropna(subset=['val_loss']).groupby('epoch').last().reset_index()
 
-    # 2. Data Cleaning (Handling Duplicate Epochs)
-    # Using last() ensures that the most recent training data (from resume) is preserved
-    epoch_train = df_full.dropna(subset=['train_loss']).groupby('epoch')['train_loss'].mean().reset_index()
-    epoch_val = df_full.dropna(subset=['val_loss']).groupby('epoch')['val_loss'].last().reset_index()
+    # 2. Key Metrics Calculation
+    # (1) Best Loss Point (Based on Val Loss)
+    best_loss_idx = val_df['val_loss'].idxmin()
+    best_loss_epoch = val_df.loc[best_loss_idx, 'epoch']
+    best_loss_val = val_df.loc[best_loss_idx, 'val_loss']
+    # Extract Accuracy at the point of Minimum Loss
+    acc_at_best_loss = val_df.loc[best_loss_idx, 'val_acc']
 
-    # 3. Identify Best Epoch (Based on Validation Loss)
-    best_idx = epoch_val['val_loss'].idxmin()
-    best_epoch = epoch_val.loc[best_idx, 'epoch']
-    best_loss = epoch_val.loc[best_idx, 'val_loss']
+    # (2) Best Accuracy Point (Based on Val Acc)
+    best_acc_idx = val_df['val_acc'].idxmax()
+    best_acc_epoch = val_df.loc[best_acc_idx, 'epoch']
+    best_acc_val = val_df.loc[best_acc_idx, 'val_acc']
 
-    # 4. Plotting
-    plt.figure(figsize=(12, 6))
+    # 3. Plotting
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 7))
+    fig.suptitle(f'Learning Curve', fontsize=16, fontweight='bold')
 
-    plt.plot(epoch_train['epoch'], epoch_train['train_loss'], 
-             label='Training Loss (Total)', color='royalblue', lw=1.5, alpha=0.7)
+    # --- Left Plot: Loss Analysis ---
+    ax1.plot(train_df['epoch'], train_df['train_loss'], label='Train Loss', color='royalblue', alpha=0.5)
+    ax1.plot(val_df['epoch'], val_df['val_loss'], label='Val Loss', color='darkorange', marker='o', markersize=4)
     
-    plt.plot(epoch_val['epoch'], epoch_val['val_loss'], 
-             label='Validation Loss (Total)', color='darkorange', lw=2, marker='s', markersize=4)
-
-    # Guide line for Best Epoch
-    plt.axvline(x=best_epoch, color='red', linestyle='--', alpha=0.8,
-                label=f'Best: Ep {int(best_epoch)} (Loss: {best_loss:.4f})')
-    plt.scatter(best_epoch, best_loss, color='red', s=60, zorder=5)
-
-    plt.title(f'Continuous Learning Curve: {png_title}', fontsize=14)
-    plt.xlabel('Epoch', fontsize=12)
-    plt.ylabel('Loss', fontsize=12)
-    plt.legend(loc='upper right')
-    plt.grid(True, linestyle=':', alpha=0.6)
+    label_loss = f'Best Loss: {best_loss_val:.4f} (Ep {int(best_loss_epoch)})'
+    ax1.axvline(x=best_loss_epoch, color='red', linestyle='--', alpha=0.8, label=label_loss)
+    ax1.scatter(best_loss_epoch, best_loss_val, color='red', s=60, zorder=5)
     
-    # 5. Export results
+    ax1.set_title('Loss', fontsize=14)
+    ax1.set_xlabel('Epoch', fontsize=12)
+    ax1.set_ylabel('Loss', fontsize=12)
+    ax1.legend(loc='upper right', fontsize=10)
+    ax1.grid(True, linestyle=':', alpha=0.6)
+
+    # --- Right Plot: Accuracy Analysis ---
+    ax2.plot(train_df['epoch'], train_df['train_acc'], label='Train Acc', color='seagreen', alpha=0.5)
+    ax2.plot(val_df['epoch'], val_df['val_acc'], label='Val Acc', color='crimson', marker='s', markersize=4)
+    
+    # (A) Best Accuracy Point (Blue dashed line)
+    label_best_acc = f'Best Acc: {best_acc_val:.4f} (Ep {int(best_acc_epoch)})'
+    ax2.axvline(x=best_acc_epoch, color='blue', linestyle='--', alpha=0.6, label=label_best_acc)
+    ax2.scatter(best_acc_epoch, best_acc_val, color='blue', s=60, zorder=5)
+
+    # (B) Accuracy at Best Loss (Purple dotted line)
+    label_at_loss = f'Acc at Best Loss: {acc_at_best_loss:.4f} (Ep {int(best_loss_epoch)})'
+    ax2.axvline(x=best_loss_epoch, color='purple', linestyle=':', alpha=0.7, label=label_at_loss)
+    ax2.scatter(best_loss_epoch, acc_at_best_loss, color='purple', marker='X', s=70, zorder=6)
+
+    ax2.set_title('Accuracy', fontsize=14)
+    ax2.set_xlabel('Epoch', fontsize=12)
+    ax2.set_ylabel('Accuracy', fontsize=12)
+    ax2.legend(loc='lower right', fontsize=10)
+    ax2.grid(True, linestyle=':', alpha=0.6)
+
+    # 4. Save Results
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     
-    save_path = os.path.join(output_path, f"{png_title}.png")
+    save_path = os.path.join(output_path, f"{base_name}.png")
     plt.savefig(save_path, dpi=300)
-    print(f" [SUCCESS] Analysis complete. Graph saved to: {save_path}")
+    plt.close()
+    print(f" [SUCCESS] Analysis complete. Title: '{base_name}', Saved to: {save_path}")
 
-def save_batch_visualization(batch, channel_names,base_path, dir_name):
-    inputs, targets = batch
-    inputs_cpu = inputs.cpu().numpy()
-    targets_cpu = targets.cpu().numpy()
+def plot_roc_curve(targets, probs, save_path, title_name):
+    """
+    Function to calculate AUC and plot ROC Curve
+    """
+    fpr, tpr, _ = roc_curve(targets, probs)
+    roc_auc = auc(fpr, tpr)
 
-    # 저장 경로 설정
-    final_save_path = os.path.join(base_path, dir_name)
-    dir_es = os.path.join(final_save_path, "ES_Signal")
-    dir_16n = os.path.join(final_save_path, "16N_BKG")
-    os.makedirs(dir_es, exist_ok=True)
-    os.makedirs(dir_16n, exist_ok=True)
-
-    # 실제 데이터의 채널 수 확인
-    num_channels = inputs_cpu.shape[1] # 예: 2 또는 6
-
-    if num_channels != len(channel_names):
-        raise ValueError("num_channels is mismatch to number of channel_names")
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.4f})')
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate (Background Rejection)')
+    plt.ylabel('True Positive Rate (Signal Efficiency)')
+    plt.title(f'ROC Curve: {title_name}')
+    plt.legend(loc="lower right")
+    plt.grid(alpha=0.3)
     
-    print(f"==== Batch Visualization ====")
-    print(f"Inputs Shape  : {inputs.shape}")
-    print(f"Detected Channels: {num_channels}")
+    plt.savefig(save_path, dpi=300)
+    plt.close()
+    print(f" [SUCCESS] ROC Curve saved to: {save_path}")
 
-    for sample_idx in range(len(inputs_cpu)):
-        img = inputs_cpu[sample_idx]
-        label_num = targets_cpu[sample_idx]
-        
-        # 레이블에 따른 저장 폴더 결정
-        if label_num == 1:
-            label_name, current_dir = "ES", dir_es
-        else:
-            label_name, current_dir = "16N", dir_16n
-        
-        # 실제 채널 수(num_channels)만큼 서브플롯 생성
-        fig, axes = plt.subplots(num_channels, 1, figsize=(10, 5 * num_channels))
-        if num_channels == 1:
-            axes = [axes] # 채널이 1개일 때를 위한 예외 처리
-            
-        fig.suptitle(f"[{label_name}] Sample {sample_idx}", fontsize=20)
 
-        for i in range(num_channels):
-            # 채널 이름이 정의된 리스트보다 많을 경우 대비
-            title = channel_names[i] if i < len(channel_names) else f"Ch {i}"
-            
-            # Hit(0), Charge(1)은 viridis, 시간 계열은 magma 컬러맵 사용
-            cmap = 'viridis' if i < 2 else 'magma'
-            
-            im = axes[i].imshow(img[i], aspect='auto', origin='lower', cmap=cmap)
-            axes[i].set_title(f"Ch {i}: {title}")
-            plt.colorbar(im, ax=axes[i])
+if __name__ == "__main__":
+    log_path = "/home/yujin/projects/wind/WIND_bkg_rejection/logs"
+    sub_path = "test/version_0"
 
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-        
-        # 파일 저장
-        file_name = f"sample_{sample_idx:03d}.png"
-        plt.savefig(os.path.join(current_dir, file_name))
-        plt.close(fig)
-
-    print(f"Successfully saved {len(inputs_cpu)} images to {final_save_path}")
-
-base_path = "/home/yujin/projects/wind/BKG_rejection/CNN/logs/test/version_0"
-csv_path = os.path.join(base_path, "metrics.csv")
-output_path = base_path
-loss_analysis(csv_path=csv_path, output_path=base_path, png_title="loss_curve.png" )
+    metrics_path = os.path.join(log_path, sub_path)
+    output_path = os.path.join(log_path, sub_path)
+    loss_acc_analysis(metrics_path=metrics_path, output_path=output_path, png_title="loss_acc_curve.png" )
