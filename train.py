@@ -13,7 +13,6 @@ from models.cnn_reference import cnn_reference
 from models.Sparse_ResNet18 import sparse_resnet18
 from models.HitMapCNN import HitMapLightningModel
 
-from analysis.check_training import *
 
 
 def parse_args():
@@ -108,8 +107,8 @@ if __name__ == "__main__":
     dm.setup(stage="fit")
     train_loader = dm.train_dataloader()
 
-    # model = get_model("HitMap", args)
-    model = get_model("resnet18", args)
+    model = get_model("HitMap", args)
+    # model = get_model("resnet18", args)
     model.to(device) 
 
     # ==== Checkpoint ====
@@ -130,6 +129,7 @@ if __name__ == "__main__":
 
     csv_logger = CSVLogger(save_dir=args.log_path,
                            name=args.log_name,
+                           flush_logs_every_n_steps=10,
                            version=existing_version)
     checkpoint_callback = ModelCheckpoint(filename="best_model-{epoch:02d}-{val_loss:.3f}",
                                           monitor="val_loss",

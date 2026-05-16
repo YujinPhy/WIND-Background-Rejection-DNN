@@ -62,9 +62,12 @@ class HitMapLightningModel(pl.LightningModule):
         inputs, targets = batch
         logits = self(inputs)
         loss = self.criterion(logits, targets)
-        
+
+        preds = torch.argmax(logits, dim=1)
+        acc = (preds == targets).float().mean()
         # on_step과 on_epoch를 모두 켜서 스텝별/에폭별 로그 기록
-        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True)
+        self.log_dict({"train_loss": loss, "train_acc": acc}, prog_bar=True, on_step=False, on_epoch=True, logger=True)
+        
         return loss
 
     def validation_step(self, batch, batch_idx):
