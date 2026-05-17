@@ -9,8 +9,13 @@ LOG_NAME="test"
 python train.py \
     --es-path "$ES_H5" \
     --n16-path "$N16_H5" \
+    --in-ch 2 \
+    --image-h 91 \
+    --image-w 142 \
+    --num-workers 16 \
     --log-path "$LOG_DIR" \
     --log-name "$LOG_NAME" \
+    --model-name "HitMapCNN" \
     --seed 42 \
     --test-ratio 0.2 \
     --val-ratio 0.2 \
@@ -18,5 +23,5 @@ python train.py \
     --epochs 50 \
     --lr 1e-4 \
     --shuffle \
-    --num-workers 16 \
-    # --gpu \
+    --target-bkg-residual 0.03
+

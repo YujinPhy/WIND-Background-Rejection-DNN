@@ -9,9 +9,9 @@ from sklearn.metrics import roc_curve, accuracy_score, confusion_matrix, classif
 
 from datasets.DataModule import WIND_DataModule
 from models.ResNet18 import resnet18
-from models.cnn_reference import cnn_reference
+from WIND_bkg_rejection.models.DSNB_CNN import cnn_reference
 from models.Sparse_ResNet18 import sparse_resnet18
-from models.HitMapCNN import HitMapLightningModel
+from models.HitMapCNN import HitMapCNN
 
 from analysis.check_training import *
 from analysis.physical_evaluation import *
@@ -52,7 +52,7 @@ def get_model(model_name, args):
             "n_classes": 2,
             "lr": args.lr
         }
-        return HitMapLightningModel(**model_kwargs)
+        return HitMapCNN(**model_kwargs)
     elif model_name == "resnet18":
         model_kwargs = {
             "args": args,
