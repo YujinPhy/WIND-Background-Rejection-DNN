@@ -86,6 +86,7 @@ def save_to_h5(data, label, energy_thr, vtx_cut_mm, min_unique_pmt, output_path,
    
     stats = {}
 
+
     h5_path = os.path.join(output_path, h5_name)
     with h5py.File(h5_path, 'w') as f:
         # Attributes 
