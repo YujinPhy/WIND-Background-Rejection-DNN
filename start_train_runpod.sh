@@ -1,10 +1,10 @@
 #!/bin/bash
 
-ES_H5="/home/Background-Rejection-for-Water-Cherenkov-Detector/raw_data/WIND_ES.h5"
-N16_H5="/home/Background-Rejection-for-Water-Cherenkov-Detector/raw_data/WIND_16N.h5"
+ES_H5="/workspace/Background-Rejection-for-Water-Cherenkov-Detector/raw_data/WIND_ES.h5"
+N16_H5="/workspace/Background-Rejection-for-Water-Cherenkov-Detector/raw_data/WIND_16N.h5"
 
 LOG_DIR="/home/Background-Rejection-for-Water-Cherenkov-Detector/logs"
-LOG_NAME="test"
+LOG_NAME="HitMapCNN"
 
 python train.py \
     --es-path "$ES_H5" \
@@ -20,3 +20,4 @@ python train.py \
     --shuffle \
     --num-workers 16 \
     --gpu \
+
