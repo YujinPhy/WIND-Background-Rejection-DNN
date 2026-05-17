@@ -82,18 +82,18 @@ def roc_curve_analysis(y_test, p_test, test_auc, test_internal_eff_wp, test_bkg_
 
 
 
-    plt.figure(figsize=(6, 5))
-    plt.plot(fpr, tpr, label=f"AUC = {test_auc:.4f}")
-    plt.plot([0, 1], [0, 1], linestyle="--")
-    plt.scatter([test_bkg_residual_wp], [test_internal_eff_wp], label="working point")
-    plt.xlabel("False positive rate: 16N misidentified as internal")
-    plt.ylabel("True positive rate: internal efficiency")
-    plt.title("ROC Curve")
-    plt.legend()
-    plt.tight_layout()
-    outdir = os.path.join(output_path, "roc_curve.png")
-    plt.savefig(outdir, dpi=160)
-    plt.close()
+    # plt.figure(figsize=(6, 5))
+    # plt.plot(fpr, tpr, label=f"AUC = {test_auc:.4f}")
+    # plt.plot([0, 1], [0, 1], linestyle="--")
+    # plt.scatter([test_bkg_residual_wp], [test_internal_eff_wp], label="working point")
+    # plt.xlabel("False positive rate: 16N misidentified as internal")
+    # plt.ylabel("True positive rate: internal efficiency")
+    # plt.title("ROC Curve")
+    # plt.legend()
+    # plt.tight_layout()
+    # outdir = os.path.join(output_path, "roc_curve.png")
+    # plt.savefig(outdir, dpi=160)
+    # plt.close()
 
 def performance_summary(model, val_loader, test_loader, criterion, device, target_bkg_residual, output_path): 
     val_loss, val_acc, y_val, p_val = evaluate(model, val_loader, criterion, device)
