@@ -2,6 +2,9 @@ import os
 import numpy as np
 import pandas as pd 
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
+
 import torch
 from sklearn.metrics import roc_curve, accuracy_score, confusion_matrix, classification_report, roc_auc_score
 
@@ -75,7 +78,7 @@ def roc_curve_analysis(y_test, p_test, test_auc, test_internal_eff_wp, test_bkg_
     })
     roc_csv_path = os.path.join(output_path, "roc_curve_values.csv")
     roc_data.to_csv(roc_csv_path, index=False)
-    print(f" [DATA] ROC curve points saved to: {roc_csv_path}")
+    print(f"[DATA] ROC curve points saved to: {roc_csv_path}")
 
 
 

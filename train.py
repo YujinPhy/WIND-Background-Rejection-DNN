@@ -145,7 +145,7 @@ if __name__ == "__main__":
 
     ckpt = torch.load(ckpt_path, map_location=device)
     model.load_state_dict(ckpt["state_dict"])
-
+    model.to(device)
 
     # ==== Start Evaluation (No Training and Logger) ====
     # Learning Curve
