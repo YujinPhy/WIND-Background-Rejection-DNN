@@ -112,11 +112,14 @@ if __name__ == "__main__":
 
     # ==== Checkpoint ====
     csv_logger = CSVLogger(save_dir=args.log_path,
-                           name=args.log_name)
-    checkpoint_callback = ModelCheckpoint(filename="best_model",
+                           name=args.log_name,
+                           version="")
+    checkpoint_callback = ModelCheckpoint(dirpath=csv_logger.log_dir,
+                                          filename="best_model-{epoch:02d}-{val_loss:.4f}",
                                           monitor="val_loss",
                                           mode="min",
-                                          save_top_k=1)
+                                          save_top_k=1,
+                                          save_weights_only=False)
     
     # ==== Start Training ====
     trainer = pl.Trainer(max_epochs=args.epochs,
@@ -131,11 +134,16 @@ if __name__ == "__main__":
     trainer.fit(model, datamodule=dm)
 
     # ==== Evaluation ====
-    ckpt_search_path = os.path.join(args.log_path, args.log_name, "checkpoints", "best_model*.ckpt")
+    ckpt_search_path = os.path.join(csv_logger.log_dir, "best_model*.ckpt")
     ckpt_files = glob.glob(ckpt_search_path)
+
     if not ckpt_files:
         raise FileNotFoundError(f"Checkpoints not found in {ckpt_search_path}") 
-    ckpt = torch.load(ckpt_files[0], map_location=device)
+
+    ckpt_path = sorted(ckpt_files, key=os.path.getmtime)[-1]
+    print(f" >>> Loading Best Checkpoint: {ckpt_path}")
+
+    ckpt = torch.load(ckpt_path, map_location=device)
     model.load_state_dict(ckpt["state_dict"])
 
 
