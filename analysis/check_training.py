@@ -1,7 +1,8 @@
 import os
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, auc
+import torch
 
 def loss_acc_analysis(metrics_path, output_path, png_title):
     # 1. Filename Processing (Extract pure name without extension)
@@ -89,33 +90,12 @@ def loss_acc_analysis(metrics_path, output_path, png_title):
     plt.close()
     print(f" [SUCCESS] Analysis complete. Title: '{base_name}', Saved to: {save_path}")
 
-def plot_roc_curve(targets, probs, save_path, title_name):
-    """
-    Function to calculate AUC and plot ROC Curve
-    """
-    fpr, tpr, _ = roc_curve(targets, probs)
-    roc_auc = auc(fpr, tpr)
-
-    plt.figure(figsize=(8, 6))
-    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.4f})')
-    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel('False Positive Rate (Background Rejection)')
-    plt.ylabel('True Positive Rate (Signal Efficiency)')
-    plt.title(f'ROC Curve: {title_name}')
-    plt.legend(loc="lower right")
-    plt.grid(alpha=0.3)
-    
-    plt.savefig(save_path, dpi=300)
-    plt.close()
-    print(f" [SUCCESS] ROC Curve saved to: {save_path}")
 
 
 if __name__ == "__main__":
     log_path = "/home/yujin/projects/wind/WIND_bkg_rejection/logs"
     sub_path = "test/version_0"
 
-    metrics_path = os.path.join(log_path, sub_path)
+    logger_dir  = os.path.join(log_path, sub_path)
     output_path = os.path.join(log_path, sub_path)
-    loss_acc_analysis(metrics_path=metrics_path, output_path=output_path, png_title="loss_acc_curve.png" )
+    loss_acc_analysis(metrics_path=logger_dir , output_path=output_path, png_title="loss_acc_curve.png" )

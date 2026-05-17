@@ -1,11 +1,12 @@
-import torch
 import argparse
-import re
 import os
+import glob
+import torch
+import torch.nn as nn
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import roc_curve, accuracy_score, confusion_matrix, classification_report, roc_auc_score
 
 from datasets.DataModule import WIND_DataModule
 from models.ResNet18 import resnet18
@@ -14,6 +15,8 @@ from models.Sparse_ResNet18 import sparse_resnet18
 from models.HitMapCNN import HitMapLightningModel
 
 from analysis.check_training import *
+from analysis.physical_evaluation import *
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="WIND Background Rejection Training Script")
@@ -27,10 +30,8 @@ def parse_args():
     parser.add_argument("--num-workers", type=int, default=16, help="Number of workers for data loading")
     
     # Log & Checkpoint & Resume
-    parser.add_argument("--log-path", type=str, default=None, 
-                        help="Path to the log files")
-    parser.add_argument("--log-name", type=str, default=None, 
-                        help="Name to the sub log files")
+    parser.add_argument("--log-path", type=str, default=None, help="Path to the log files")
+    parser.add_argument("--log-name", type=str, default=None, help="Name to the sub log files")
 
     # Training hyperparamters
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
@@ -100,8 +101,10 @@ if __name__ == "__main__":
                          pin_memory=pin_memory,
                          num_workers=args.num_workers)
 
-    dm.setup(stage="fit")
+    dm.setup()
     train_loader = dm.train_dataloader()
+    val_loader = dm.val_dataloader()
+    test_loader = dm.test_dataloader()
 
     model = get_model("HitMap", args)
     # model = get_model("resnet18", args)
@@ -127,44 +130,26 @@ if __name__ == "__main__":
     
     trainer.fit(model, datamodule=dm)
 
-    # ==== Test ====
-    print("\n #### [ Evaluation ] #### ")
-    best_model_path = checkpoint_callback.best_model_path
-    if not best_model_path:
-        print(" [!] No best model found, using current weights for testing.")
-        best_model_path = None
-    else:
-        print(f" >>> Best model found at: {best_model_path}")
+    # ==== Evaluation ====
+    ckpt_search_path = os.path.join(args.log_path, args.log_name, "checkpoints", "best_model*.ckpt")
+    ckpt_files = glob.glob(ckpt_search_path)
+    if not ckpt_files:
+        raise FileNotFoundError(f"Checkpoints not found in {ckpt_search_path}") 
+    ckpt = torch.load(ckpt_files[0], map_location=device)
+    model.load_state_dict(ckpt["state_dict"])
 
-    test_results = trainer.test(model, datamodule=dm, ckpt_path=best_model_path)
 
-    # ==== Analysis ====
+    # ==== Start Evaluation (No Training and Logger) ====
     # Learning Curve
-    # loss_acc_analysis(metrics_path=csv_logger.log_dir,
-    #                   output_path=csv_logger.log_dir,
-    #                   png_title=f"loss_acc_curve.png")
-
+    loss_acc_analysis(metrics_path=csv_logger.log_dir,
+                      output_path=csv_logger.log_dir,
+                      png_title=f"loss_acc_curve.png")
 
     # ROC Curve
-    model.eval() # Set to evaluation mode
-    all_probs = []
-    all_targets = []
+    criterion = nn.CrossEntropyLoss()
+    target_bkg_residual = 0.03
 
-    test_loader = dm.test_dataloader()
-    with torch.no_grad():
-        for batch in test_loader:
-            x, y = batch
-            logits = model(x.to(device))
-            # Get the probability for the 'Signal' class (index 1)
-            probs = torch.softmax(logits, dim=1)[:, 1]
-            
-            all_probs.extend(probs.cpu().numpy())
-            all_targets.extend(y.numpy())
+    # Physical Evaluation
+    performance_summary(model, val_loader, test_loader, criterion, device, target_bkg_residual, csv_logger.log_dir)
 
-            plot_name, _ = os.path.splitext(args.log_name) if args.log_name else ("Result", "")
-    
-    save_dir = os.path.join(args.log_path, args.log_name, f"version_{csv_logger.version}")
-    os.makedirs(save_dir, exist_ok=True)
-    roc_save_path = os.path.join(save_dir, f"roc_curve_{plot_name}.png")
 
-    # plot_roc_curve(all_targets, all_probs, roc_save_path, plot_name)
