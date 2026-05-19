@@ -26,7 +26,7 @@ class HitMapCNN(pl.LightningModule):
         self.save_hyperparameters(args)
         
         self.features = nn.Sequential(
-            DoubleConvBlock(2, 32, kernel_size=7, dropout=0.15),
+            DoubleConvBlock(in_ch, 32, kernel_size=7, dropout=0.15),
             DoubleConvBlock(32, 32, kernel_size=5, dropout=0.20),
             DoubleConvBlock(32, 64, kernel_size=3, dropout=0.25),
             DoubleConvBlock(64, 64, kernel_size=3, dropout=0.25),
