@@ -2,30 +2,21 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import torch
 
 def loss_acc_analysis(metrics_path, output_path, png_title):
-    # 1. Filename Processing (Extract pure name without extension)
     base_name, _ = os.path.splitext(png_title)
     
     csv_path = os.path.join(metrics_path, "metrics.csv")
-    bak_path = os.path.join(metrics_path, "metrics.csv.bak")
     
     # Load data
-    dfs = []
-    if os.path.exists(bak_path):
-        dfs.append(pd.read_csv(bak_path))
-        print(f" [INFO] Loaded backup log: {bak_path}")
     if os.path.exists(csv_path):
-        dfs.append(pd.read_csv(csv_path))
+        df_full = pd.read_csv(csv_path)
         print(f" [INFO] Loaded current log: {csv_path}")
-    
-    if not dfs:
-        print(" [ERROR] No log files found for analysis.")
+    else:
+        print(f" [ERROR] Log file not found: {csv_path}")
         return
 
-    # Merge and Clean Data
-    df_full = pd.concat(dfs, axis=0, ignore_index=True)
+    # train_loss와 val_loss가 있는 행을 분리하여 에폭별로 정렬 및 집계합니다.
     train_df = df_full.dropna(subset=['train_loss']).groupby('epoch').mean().reset_index()
     val_df = df_full.dropna(subset=['val_loss']).groupby('epoch').last().reset_index()
 
@@ -91,11 +82,11 @@ def loss_acc_analysis(metrics_path, output_path, png_title):
     print(f" [SUCCESS] Analysis complete. Title: '{base_name}', Saved to: {save_path}")
 
 
+# ==== Usage Example ====
+# if __name__ == "__main__":
+#     log_path = "/home/yujin/projects/wind/WIND_bkg_rejection/logs"
+#     sub_path = "test/version_0"
 
-if __name__ == "__main__":
-    log_path = "/home/yujin/projects/wind/WIND_bkg_rejection/logs"
-    sub_path = "test/version_0"
-
-    logger_dir  = os.path.join(log_path, sub_path)
-    output_path = os.path.join(log_path, sub_path)
-    loss_acc_analysis(metrics_path=logger_dir , output_path=output_path, png_title="loss_acc_curve.png" )
+#     logger_dir  = os.path.join(log_path, sub_path)
+#     output_path = os.path.join(log_path, sub_path)
+#     loss_acc_analysis(metrics_path=logger_dir , output_path=output_path, png_title="loss_acc_curve.png" )

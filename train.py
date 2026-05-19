@@ -1,8 +1,5 @@
 import argparse
-import os
-import glob
 import torch
-import torch.nn as nn
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -153,27 +150,27 @@ if __name__ == "__main__":
     trainer.fit(model, datamodule=dm)
 
     # ==== Evaluation ====
-    val_loader = dm.val_dataloader()
-    test_loader = dm.test_dataloader()
+    # val_loader = dm.val_dataloader()
+    # test_loader = dm.test_dataloader()
 
-    best_ckpt_path = checkpoint_callback.best_model_path
-    print(f" >>> Loading Best Checkpoint: {best_ckpt_path}")
+    # best_ckpt_path = checkpoint_callback.best_model_path
+    # print(f" >>> Loading Best Checkpoint: {best_ckpt_path}")
 
-    model = model.load_from_checkpoint(best_ckpt_path, args=args) 
-    model.to(device)
+    # model = model.load_from_checkpoint(best_ckpt_path, args=args) 
+    # model.to(device)
 
-    # ==== Start Evaluation (No Training and Logger) ====
-    # Learning Curve
-    loss_acc_analysis(metrics_path=csv_logger.log_dir,
-                      output_path=csv_logger.log_dir,
-                      png_title=f"loss_acc_curve.png")
+    # # ==== Start Evaluation (No Training and Logger) ====
+    # # Learning Curve
+    # loss_acc_analysis(metrics_path=csv_logger.log_dir,
+    #                   output_path=csv_logger.log_dir,
+    #                   png_title=f"loss_acc_curve.png")
 
-    # ROC Curve
-    criterion = model.criterion
-    target_bkg_residual = 0.03
+    # # ROC Curve
+    # criterion = model.criterion
+    # target_bkg_residual = 0.03
 
-    # Physical Evaluation
-    # model.eval() is included in the function
-    performance_summary(model, val_loader, test_loader, criterion, device, args.target_bkg_residual, csv_logger.log_dir)
+    # # Physical Evaluation
+    # # model.eval() is included in the function
+    # performance_summary(model, val_loader, test_loader, criterion, device, args.target_bkg_residual, csv_logger.log_dir)
 
 

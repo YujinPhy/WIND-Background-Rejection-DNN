@@ -1,5 +1,4 @@
 import argparse
-import numpy as np
 import os
 import glob
 import torch
@@ -8,10 +7,9 @@ import pytorch_lightning as pl
 from sklearn.metrics import roc_curve, accuracy_score, confusion_matrix, classification_report, roc_auc_score
 
 from datasets.DataModule import WIND_DataModule
-from models.ResNet18 import resnet18
-from WIND_bkg_rejection.models.DSNB_CNN import cnn_reference
-from models.Sparse_ResNet18 import sparse_resnet18
 from models.HitMapCNN import HitMapCNN
+from models.ResNet18 import ResNet18
+from models.DSNB_CNN import DSNB_CNN
 
 from analysis.check_training import *
 from analysis.physical_evaluation import *
@@ -23,17 +21,21 @@ def parse_args():
     parser.add_argument("--es-path", type=str, required=True, help="Path to ES signal dataset")
     parser.add_argument("--n16-path", type=str, required=True, help="Path to 16N background dataset")
 
+    # Input data
+    parser.add_argument("--in-ch", type=int, default=2, help="Number of input channels")
+    parser.add_argument("--image-h", type=int, default=91, help="Height of input images")
+    parser.add_argument("--image-w", type=int, default=142, help="Width of input images")
+
     # Hardware setup
     parser.add_argument("--gpu", action="store_true", help="Use NVIDIA GPU (CUDA) if available")
     parser.add_argument("--num-workers", type=int, default=16, help="Number of workers for data loading")
     
     # Log & Checkpoint & Resume
-    parser.add_argument("--log-path", type=str, default=None, 
-                        help="Path to the log files")
-    parser.add_argument("--log-name", type=str, default=None, 
-                        help="Name to the sub log files")
+    parser.add_argument("--log-path", type=str, default=None, help="Path to the log files")
+    parser.add_argument("--log-name", type=str, default=None, help="Name to the sub log files")
 
     # Training hyperparamters
+    parser.add_argument("--model-name", type=str, required=True, help="Name of the model to train")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
     parser.add_argument("--test-ratio", type=float, default=0.2, help="Ratio of test data (0.0 ~ 1.0)")
     parser.add_argument("--val-ratio", type=float, default=0.2, help="Ratio of validation data (0.0 ~ 1.0)")
@@ -41,24 +43,44 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=50, help="Total number of epochs to train")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for Adam optimizer")
     parser.add_argument("--shuffle", action="store_true", default=True, help="Whether to shuffle the training data")
+
+    # Physcical analysis
+    parser.add_argument("--target-bkg-residual", type=float, default=0.03, help="Target background residual for physical evaluation (e.g., 0.03 for 3%)")
+                        
     return parser.parse_args()
 
 def get_model(model_name, args):   
-    if model_name == "HitMap":
+    if model_name == "HitMapCNN":
         model_kwargs = {
             "args": args,
-            "image_h": 91,
-            "image_w": 142,
+            "in_ch": args.in_ch,
+            "image_h": args.image_h,
+            "image_w": args.image_w,
             "n_classes": 2,
             "lr": args.lr
         }
         return HitMapCNN(**model_kwargs)
-    elif model_name == "resnet18":
+    
+    elif model_name == "ResNet18":
         model_kwargs = {
             "args": args,
+            "in_ch": args.in_ch,
+            "n_classes": 2,
             "lr": args.lr,
         }
-        return resnet18(**model_kwargs)
+        return ResNet18(**model_kwargs)
+    
+    elif model_name == "DSNB_CNN":
+        model_kwargs = {
+            "args": args,
+            "in_ch": args.in_ch,
+            "image_h": args.image_h,
+            "image_w": args.image_w,
+            "n_classes": 2,
+            "lr": args.lr
+        }
+        return DSNB_CNN(**model_kwargs)
+
     else:
         raise ValueError(f"Unsupported model: {model_name}")
 
@@ -107,10 +129,9 @@ if __name__ == "__main__":
 
 
     # ==== Get Best model ====
-    model = get_model("HitMap", args).to(device)
-    # model = get_model("resnet18", args).to(device)
+    model = get_model(args.model_name, args).to(device)
 
-    ckpt_search_path = os.path.join(args.log_path, args.log_name, "checkpoints", "best_model*.ckpt")
+    ckpt_search_path = os.path.join(args.log_path, args.log_name, "best_model*.ckpt")
     ckpt = torch.load(glob.glob(ckpt_search_path)[0], map_location=device)
     model.load_state_dict(ckpt["state_dict"])
 
@@ -118,12 +139,12 @@ if __name__ == "__main__":
     # ==== Start Evaluation (No Training and Logger) ====
     # Learning Curve
     logger_dir  = os.path.join(args.log_path, args.log_name)
-    # loss_acc_analysis(metrics_path=logger_dir,
-    #                   output_path=logger_dir,
-    #                   png_title=f"loss_acc_curve.png")
+    loss_acc_analysis(metrics_path=logger_dir,
+                      output_path=logger_dir,
+                      png_title=f"loss_acc_curve.png")
 
     # ROC Curve
     criterion = nn.CrossEntropyLoss()
     target_bkg_residual = 0.03
-
+    
     performance_summary(model, val_loader, test_loader, criterion, device, target_bkg_residual, logger_dir )
