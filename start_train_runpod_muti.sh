@@ -4,7 +4,6 @@ H5_PATH="/workspace/Background-Rejection-for-Water-Cherenkov-Detector/raw_data"
 
 LOG_DIR="/workspace/Background-Rejection-for-Water-Cherenkov-Detector/logs"
 
-IN_CH=2
 IMAGE_H=91
 IMAGE_W=142
 
@@ -12,7 +11,7 @@ IMAGE_W=142
 python train.py \
     --es-path "$H5_PATH/WIND_ES_with_r_correction.h5" \
     --n16-path "$H5_PATH/WIND_16N_with_r_correction.h5" \
-    --in-ch $IN_CH \
+    --in-ch 3 \
     --image-h $IMAGE_H \
     --image-w $IMAGE_W \
     --num-workers 16 \
@@ -32,7 +31,7 @@ python train.py \
 python train.py \
     --es-path "$H5_PATH/WIND_ES_with_z_correction.h5" \
     --n16-path "$H5_PATH/WIND_16N_with_z_correction.h5" \
-    --in-ch $IN_CH \
+    --in-ch 3 \
     --image-h $IMAGE_H \
     --image-w $IMAGE_W \
     --num-workers 16 \
@@ -52,7 +51,7 @@ python train.py \
 python train.py \
     --es-path "$H5_PATH/WIND_ES_with_rz_corrections.h5" \
     --n16-path "$H5_PATH/WIND_16N_with_rz_corrections.h5" \
-    --in-ch $IN_CH \
+    --in-ch 4 \
     --image-h $IMAGE_H \
     --image-w $IMAGE_W \
     --num-workers 16 \

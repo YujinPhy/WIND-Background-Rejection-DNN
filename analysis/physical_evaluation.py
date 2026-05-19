@@ -80,8 +80,6 @@ def roc_curve_analysis(y_test, p_test, test_auc, test_internal_eff_wp, test_bkg_
     roc_data.to_csv(roc_csv_path, index=False)
     print(f"[DATA] ROC curve points saved to: {roc_csv_path}")
 
-
-
     # plt.figure(figsize=(6, 5))
     # plt.plot(fpr, tpr, label=f"AUC = {test_auc:.4f}")
     # plt.plot([0, 1], [0, 1], linestyle="--")
